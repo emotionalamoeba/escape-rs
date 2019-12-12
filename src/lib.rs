@@ -3,6 +3,10 @@ extern crate seed;
 use seed::prelude::*;
 use seed::storage::Storage;
 use serde::{Deserialize, Serialize};
+use std::char;
+
+const ENTER_KEY: u32 = 13;
+const BACKSPACE_KEY: u32 = 0x8;
 
 // Model
 
@@ -156,7 +160,13 @@ enum Msg {
 }
 
 fn processKeyPress(model: &mut Model, key_code: u32) {
-    model.edit_text.push_str(&*format!("{}", key_code));
+
+    if key_code == BACKSPACE_KEY && model.edit_text.len() > 0 {
+        model.edit_text = (&model.edit_text[..model.edit_text.len() - 1]).to_string();
+    }
+    else if let Some(c) = char::from_u32(key_code) {
+        model.edit_text.push(c);
+    }
 }
 
 fn update(msg: Msg, model: &mut Model, _: &mut impl Orders<Msg>) {
@@ -224,7 +234,7 @@ fn view(model: &Model) -> impl View<Msg> {
         
         div![ &text_style, format!(">{}", model.edit_text) ],
         
-        input![
+        /*input![
             &input_style,
             attrs! {At::Class => "edit", At::Value => model.edit_text},
          //   simple_ev(Ev::Blur, Msg::EditSubmit(posit)),
@@ -237,7 +247,7 @@ fn view(model: &Model) -> impl View<Msg> {
         /*button![
             simple_ev(Ev::Click, Msg::Increment),
             format!("Hello, World × {}", model.val)
-        ]*/
+        ]*/*/
     ]
 }
 

@@ -1,0 +1,8 @@
+body {
+  background-color: #0000A8;
+}
+
+@font-face {
+  font-family: 'dos';
+  src: url('MorePerfectDOSVGA.ttf');
+}

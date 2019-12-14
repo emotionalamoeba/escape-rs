@@ -159,25 +159,25 @@ enum Msg {
     KeyPressed(web_sys::KeyboardEvent)
 }
 
+fn processCommand(model: &mut Model, command: String) {
+    if command.trim().eq_ignore_ascii_case("north") {
+        for index in 0..model.currentRoom.exits.len() {
+            let exit = &model.currentRoom.exits[index];
+            if exit.direction == Direction::North {
+                let nextRoom = &exit.goesTo;
+                
+                model.currentRoom = nextRoom;
+            }
+        }
+    }
+}
+
 fn processKeyPress(model: &mut Model, event: web_sys::KeyboardEvent) {
 
-    event.prevent_default();
-    let code = seed::to_kbevent(&event).key_code();
-    // ..
-    let target = event.target().unwrap();
-    let text = seed::to_input(&target).value();
-    
-    
-
-    model.edit_text.push_str(&text);
-/*
-    if key == BACKSPACE_KEY && model.edit_text.len() > 0 {
-        model.edit_text = (&model.edit_text[..model.edit_text.len() - 1]).to_string();
+    if event.key_code() == ENTER_KEY {
+        processCommand(model, model.edit_text.to_string());
+        model.edit_text = String::from("");
     }
-    else if let Some(c) = char::from_u32(key) {
-        
-        model.edit_text.push_str(&format!("{}", key));
-    }*/
 }
 
 fn update(msg: Msg, model: &mut Model, _: &mut impl Orders<Msg>) {
@@ -209,6 +209,7 @@ fn get_banner_text(model: &Model) -> String {
 // View
 
 fn view(model: &Model) -> impl View<Msg> {
+    
     let text_style = style!{ 
         St::UserSelect => "none";
         "font-family" => "dos"; 
@@ -249,6 +250,8 @@ fn view(model: &Model) -> impl View<Msg> {
         
         div![ &text_style, format!(">{}", model.edit_text) ],
         
+        div![ &text_style ],
+                    
         input![
             &input_style,
             attrs! {At::Class => "edit", At::Value => model.edit_text},
@@ -256,6 +259,7 @@ fn view(model: &Model) -> impl View<Msg> {
             attrs! {At::AutoFocus => "autofocus"},
          //   simple_ev(Ev::Blur, Msg::EditSubmit(posit)),
             input_ev(Ev::Input, Msg::EditChange),
+            keyboard_ev(Ev::KeyDown, Msg::KeyPressed),
         ],
         
         /*

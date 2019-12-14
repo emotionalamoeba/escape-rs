@@ -159,14 +159,25 @@ enum Msg {
     KeyPressed(web_sys::KeyboardEvent)
 }
 
-fn processKeyPress(model: &mut Model, key_code: u32) {
+fn processKeyPress(model: &mut Model, event: web_sys::KeyboardEvent) {
 
-    if key_code == BACKSPACE_KEY && model.edit_text.len() > 0 {
+    event.prevent_default();
+    let code = seed::to_kbevent(&event).key_code();
+    // ..
+    let target = event.target().unwrap();
+    let text = seed::to_input(&target).value();
+    
+    
+
+    model.edit_text.push_str(&text);
+/*
+    if key == BACKSPACE_KEY && model.edit_text.len() > 0 {
         model.edit_text = (&model.edit_text[..model.edit_text.len() - 1]).to_string();
     }
-    else if let Some(c) = char::from_u32(key_code) {
-        model.edit_text.push(c);
-    }
+    else if let Some(c) = char::from_u32(key) {
+        
+        model.edit_text.push_str(&format!("{}", key));
+    }*/
 }
 
 fn update(msg: Msg, model: &mut Model, _: &mut impl Orders<Msg>) {
@@ -175,7 +186,7 @@ fn update(msg: Msg, model: &mut Model, _: &mut impl Orders<Msg>) {
     match msg {
         Msg::Increment => model.val += 1,
         Msg::EditChange(edit_text) => model.edit_text = edit_text,
-        Msg::KeyPressed(ev) => processKeyPress(model, ev.key_code()),
+        Msg::KeyPressed(ev) => processKeyPress(model, ev),
         Msg::UpdateCoords(ev) => {}
     }
 }
@@ -219,6 +230,10 @@ fn view(model: &Model) -> impl View<Msg> {
     };
     
     let input_style = style!{
+        St::MaxWidth => unit!(0, px);
+        St::MaxHeight => unit!(0, px);
+        St::Border => "none";
+        
         St::Position => "absolute";
         St::Bottom => unit!(1, em);
     };
@@ -234,16 +249,16 @@ fn view(model: &Model) -> impl View<Msg> {
         
         div![ &text_style, format!(">{}", model.edit_text) ],
         
-        /*input![
+        input![
             &input_style,
             attrs! {At::Class => "edit", At::Value => model.edit_text},
+            attrs! {At::OnBlur => "this.focus()"},
+            attrs! {At::AutoFocus => "autofocus"},
          //   simple_ev(Ev::Blur, Msg::EditSubmit(posit)),
             input_ev(Ev::Input, Msg::EditChange),
-            /*keyboard_ev(Ev::KeyDown, move |ev| Msg::EditKeyDown(
-                posit,
-                ev.key_code()
-            )),*/
         ],
+        
+        /*
         /*button![
             simple_ev(Ev::Click, Msg::Increment),
             format!("Hello, World × {}", model.val)
@@ -255,7 +270,8 @@ fn window_events(model: &Model) -> Vec<Listener<Msg>> {
     let mut result = Vec::new();
     //if model.watching {
         result.push(mouse_ev(Ev::MouseMove, Msg::UpdateCoords));
-        result.push(keyboard_ev(Ev::KeyDown, Msg::KeyPressed));
+        //result.push(keyboard_ev(Ev::KeyDown, Msg::KeyPressed));
+        //result.push(input_ev(Ev::KeyDown, Msg::KeyPressed));
     //}
     result
 }

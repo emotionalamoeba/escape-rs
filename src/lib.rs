@@ -1,9 +1,14 @@
 #[macro_use]
 extern crate seed;
+extern crate lazy_static;
+
 use seed::prelude::*;
 use seed::storage::Storage;
 use serde::{Deserialize, Serialize};
 use std::char;
+
+mod primitives;
+mod interpreter;
 
 const ENTER_KEY: u32 = 13;
 const BACKSPACE_KEY: u32 = 0x8;
@@ -11,28 +16,8 @@ const BACKSPACE_KEY: u32 = 0x8;
 // Model
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
-enum Direction {
-    North,
-    South,
-    East,
-    West
-}
-
-
-impl Direction {
-    pub fn as_str(&self) -> &str {
-        match self {
-            &Direction::North => "North",
-            &Direction::South => "South",
-            &Direction::East => "East",
-            &Direction::West => "West",
-        }
-    }
-}
-
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 struct Exit {
-    direction: Direction,
+    direction: primitives::direction::Direction,
     goesTo: Room,
 }
 
@@ -105,9 +90,9 @@ fn build_level() -> Room {
                                        So, here you are."),
         // exits: Vec::new()
         exits: vec![ 
-            Exit { direction: Direction::North, goesTo: roomNextDoor },
-            Exit { direction: Direction::East, goesTo: roomToTheEast },
-            Exit { direction: Direction::West, goesTo: roomToTheWest }
+            Exit { direction: primitives::direction::Direction::North, goesTo: roomNextDoor },
+            Exit { direction: primitives::direction::Direction::East, goesTo: roomToTheEast },
+            Exit { direction: primitives::direction::Direction::West, goesTo: roomToTheWest }
         ]
     };
     
@@ -121,6 +106,7 @@ struct Model {
     local_storage: Storage,
     
     edit_text: String,
+    response_text: String,
     cursor_position: i32,
 }
 
@@ -142,6 +128,7 @@ impl Default for Model {
             local_storage,
             
             edit_text: String::new(),
+            response_text: String::new(),
             cursor_position: 0,
         }
     }
@@ -159,23 +146,30 @@ enum Msg {
     KeyPressed(web_sys::KeyboardEvent)
 }
 
-fn processCommand(model: &mut Model, command: String) {
-    if command.trim().eq_ignore_ascii_case("north") {
-        for index in 0..model.currentRoom.exits.len() {
-            let exit = &model.currentRoom.exits[index];
-            if exit.direction == Direction::North {
-                let nextRoom = &exit.goesTo;
-                
-                model.currentRoom = nextRoom;
-            }
-        }
+fn processAction(model: &mut Model, action: &primitives::action::Action) {
+    
+    model.response_text = String::from("");
+        
+    match action.direction {
+        primitives::direction::Direction::North => { model.response_text = String::from("You want to go North?") },
+        primitives::direction::Direction::South => { model.response_text = String::from("You want to go South?") },
+        primitives::direction::Direction::East => { model.response_text = String::from("You want to go East?") },
+        primitives::direction::Direction::West => { model.response_text = String::from("You want to go West?") }
     }
 }
 
 fn processKeyPress(model: &mut Model, event: web_sys::KeyboardEvent) {
 
     if event.key_code() == ENTER_KEY {
-        processCommand(model, model.edit_text.to_string());
+        model.response_text = String::from("");
+        
+        let result = interpreter::processCommandIntoAction(model.edit_text.to_string());
+        
+        match result {
+            Some(x) => { processAction(model, &x) },
+            None => { model.response_text = String::from("I did not understand!") }
+        }
+        
         model.edit_text = String::from("");
     }
 }
@@ -248,6 +242,8 @@ fn view(model: &Model) -> impl View<Msg> {
         
         div![ &text_style, style!{ St::FontSize => unit!(1, em) }, format!("{}", model.currentRoom.describeExits()) ],
         
+        div![ &text_style, format!("{}", model.response_text) ],
+                
         div![ &text_style, format!(">{}", model.edit_text) ],
         
         div![ &text_style ],

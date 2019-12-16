@@ -55,16 +55,3 @@ pub fn processCommandIntoAction(command: String) -> Option<action::Action> {
     
     None
 }
-
-/*pub fn processCommand(model: &mut Model, command: String) {
-    if (northCommand.is_match(&command)) {
-       for index in 0..model.currentRoom.exits.len() {
-            let exit = &model.currentRoom.exits[index];
-            if exit.direction == direction::Direction::North {
-                let nextRoom = &exit.goesTo;
-                
-                model.currentRoom = nextRoom;
-            }
-        }
-    }
-}*/

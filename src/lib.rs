@@ -54,7 +54,7 @@ impl Room {
     }
 }
 
-fn build_level() -> Room {
+fn build_level<'a>() -> &'a Room {
 
     let mut roomNextDoor = Room {
         name: String::from("Room Next Door"),
@@ -97,12 +97,12 @@ fn build_level() -> Room {
     };
     
     
-    return startRoom;
+    return &startRoom;
 }
 
-struct Model {
+static struct Model<'a> {
     pub val: i32,
-    pub currentRoom: Room,
+    pub currentRoom: &'a Room,
     local_storage: Storage,
     
     edit_text: String,
@@ -146,12 +146,24 @@ enum Msg {
     KeyPressed(web_sys::KeyboardEvent)
 }
 
+fn moveInDirection(model: &mut Model, direction: primitives::direction::Direction) {
+    
+       for index in 0..model.currentRoom.exits.len() {
+            let exit = &model.currentRoom.exits[index];
+            if exit.direction == direction {
+                let nextRoom = &exit.goesTo;
+                
+                model.currentRoom = nextRoom;
+            }
+        }
+}
+
 fn processAction(model: &mut Model, action: &primitives::action::Action) {
     
     model.response_text = String::from("");
         
     match action.direction {
-        primitives::direction::Direction::North => { model.response_text = String::from("You want to go North?") },
+        primitives::direction::Direction::North => { moveInDirection(model, action.direction) },
         primitives::direction::Direction::South => { model.response_text = String::from("You want to go South?") },
         primitives::direction::Direction::East => { model.response_text = String::from("You want to go East?") },
         primitives::direction::Direction::West => { model.response_text = String::from("You want to go West?") }

@@ -7,6 +7,16 @@ use seed::storage::Storage;
 use serde::{Deserialize, Serialize};
 use std::char;
 
+use std::cell::RefCell;
+
+use crate::{ entity::{Room} };
+use crate::{ primitives::{RoomMap} };
+/*use crate::{
+    entity::{Room},
+    primitives::{RoomMap},
+*/
+
+mod entity;
 mod primitives;
 mod interpreter;
 
@@ -18,62 +28,10 @@ const BACKSPACE_KEY: u32 = 0x8;
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 struct Exit {
     direction: primitives::direction::Direction,
-    goesTo: Room,
+    goesTo: String,
 }
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
-struct Room {
-    pub name: String,
-    pub description: String,
-    pub exits: Vec<Exit>
-}
-
-impl Room {
-    pub fn describeExits(&self) -> String {
-        if self.exits.is_empty() {
-            return String::from("There is no way out!")
-        }
-        
-        let mut directionList = "".to_string();
-        
-        for index in 0..self.exits.len() {
-            if (index == 0) {
-                directionList = format!("{}", self.exits[index].direction.as_str().to_string());
-            }
-            else if (index == self.exits.len() - 1) {
-                directionList = format!("{} and {}", directionList, self.exits[index].direction.as_str().to_string());
-            }
-            else {
-                directionList = format!("{}, {}", directionList, self.exits[index].direction.as_str().to_string());
-            }
-        }
-
-        return format!(
-            "Exits are {}", directionList
-        );
-    }
-}
-
-fn build_level<'a>() -> &'a Room {
-
-    let mut roomNextDoor = Room {
-        name: String::from("Room Next Door"),
-        description: String::from("Nothing to see here."),
-        exits: Vec::new()
-    };
-    
-    let mut roomToTheEast = Room {
-        name: String::from("Room To The East"),
-        description: String::from("Nothing to see here."),
-        exits: Vec::new()
-    };
-    
-    let mut roomToTheWest = Room {
-        name: String::from("Room To The West"),
-        description: String::from("Nothing to see here."),
-        exits: Vec::new()
-    };
-    
+fn build_rooms(roomMap: &mut RoomMap) {
     let mut startRoom = Room {
         name: String::from("The Crater"),
         description: String::from("   The last thing you remember is whistling through space and the phenonomal\n\
@@ -88,21 +46,28 @@ fn build_level<'a>() -> &'a Room {
                                     screwed up piece of paper.  You yourself are crumpled up and resting next to\n\
                                     the craft.  \n\
                                        So, here you are."),
-        // exits: Vec::new()
         exits: vec![ 
-            Exit { direction: primitives::direction::Direction::North, goesTo: roomNextDoor },
-            Exit { direction: primitives::direction::Direction::East, goesTo: roomToTheEast },
-            Exit { direction: primitives::direction::Direction::West, goesTo: roomToTheWest }
+            entity::exit::Exit { direction: primitives::direction::Direction::North, goesTo: String::from("Room2") },
         ]
     };
     
+    let mut room2 = Room {
+        name: String::from("Room2"),
+        description: String::from("Welcome to the other room."),
+        exits: vec![ 
+            entity::exit::Exit { direction: primitives::direction::Direction::South, goesTo: String::from("The Crater"), },
+        ]
+    };
     
-    return &startRoom;
+    roomMap.insert(String::from("The Crater"), Box::new(startRoom));
+    roomMap.insert(String::from("Room2"), Box::new(room2));
 }
 
-static struct Model<'a> {
+struct Model {
+    rooms: RoomMap,
+
     pub val: i32,
-    pub currentRoom: &'a Room,
+    pub currentRoom: String,
     local_storage: Storage,
     
     edit_text: String,
@@ -111,6 +76,17 @@ static struct Model<'a> {
 }
 
 impl Model {
+    pub fn get_curr_room(&self) -> &Room {
+        if let Some(room) = self.rooms.get(&self.currentRoom) {
+            room
+        } else {
+            panic!(format!(
+                "ERROR: {} is not a valid room (The world should be fixed).",
+                self.currentRoom
+            ))
+        }
+    }
+
     fn sync_storage(&self) {
         // todo: Every item that adds, deletes, or changes a today re-serializes and stores
         // todo the whole model. Effective, but probably quite slow!
@@ -122,15 +98,21 @@ impl Default for Model {
     fn default() -> Self {
         let local_storage = seed::storage::get_storage().unwrap();
         
-        Self {
-            val: 0,
-            currentRoom: build_level(),
-            local_storage,
+        let mut model = Model {
+            rooms: RoomMap::new(),
             
+            val: 0,
+            local_storage,
+            currentRoom: String::new(),
             edit_text: String::new(),
             response_text: String::new(),
             cursor_position: 0,
-        }
+        };
+        
+        build_rooms(&mut model.rooms);
+        model.currentRoom = String::from("The Crater");
+        
+        return model;
     }
 }
 
@@ -147,15 +129,13 @@ enum Msg {
 }
 
 fn moveInDirection(model: &mut Model, direction: primitives::direction::Direction) {
-    
-       for index in 0..model.currentRoom.exits.len() {
-            let exit = &model.currentRoom.exits[index];
-            if exit.direction == direction {
-                let nextRoom = &exit.goesTo;
-                
-                model.currentRoom = nextRoom;
-            }
+
+    for index in 0..model.get_curr_room().exits.len() {
+        let exit = &model.get_curr_room().exits[index];
+        if exit.get_direction() == direction {
+            model.currentRoom = exit.goes_to();
         }
+    }
 }
 
 fn processAction(model: &mut Model, action: &primitives::action::Action) {
@@ -164,9 +144,9 @@ fn processAction(model: &mut Model, action: &primitives::action::Action) {
         
     match action.direction {
         primitives::direction::Direction::North => { moveInDirection(model, action.direction) },
-        primitives::direction::Direction::South => { model.response_text = String::from("You want to go South?") },
-        primitives::direction::Direction::East => { model.response_text = String::from("You want to go East?") },
-        primitives::direction::Direction::West => { model.response_text = String::from("You want to go West?") }
+        primitives::direction::Direction::South => { moveInDirection(model, action.direction) },
+        primitives::direction::Direction::East => { moveInDirection(model, action.direction) },
+        primitives::direction::Direction::West => { moveInDirection(model, action.direction) },
     }
 }
 
@@ -181,13 +161,13 @@ fn processKeyPress(model: &mut Model, event: web_sys::KeyboardEvent) {
             Some(x) => { processAction(model, &x) },
             None => { model.response_text = String::from("I did not understand!") }
         }
-        
+    
         model.edit_text = String::from("");
     }
 }
 
 fn update(msg: Msg, model: &mut Model, _: &mut impl Orders<Msg>) {
-    model.sync_storage(); // Doing it here will miss the most recent update...
+    //model.sync_storage(); // Doing it here will miss the most recent update...
     
     match msg {
         Msg::Increment => model.val += 1,
@@ -245,14 +225,17 @@ fn view(model: &Model) -> impl View<Msg> {
         St::Bottom => unit!(1, em);
     };
     
+    let roomName = &model.get_curr_room().name;
+    let roomDescription = &model.get_curr_room().description;
+    
     vec![
         div![ &banner_style, get_banner_text(model) ],
         
-        h1![ &text_style, format!("{}", model.currentRoom.name) ],
+        h1![ &text_style, format!("{}", roomName) ],
         
-        div![ &text_style, format!("{}", model.currentRoom.description) ],
+        div![ &text_style, format!("{}", roomDescription) ],
         
-        div![ &text_style, style!{ St::FontSize => unit!(1, em) }, format!("{}", model.currentRoom.describeExits()) ],
+  //      div![ &text_style, style!{ St::FontSize => unit!(1, em) }, format!("{}", model.currentRoom.describeExits()) ],
         
         div![ &text_style, format!("{}", model.response_text) ],
                 

@@ -10,12 +10,15 @@ use std::char;
 use std::cell::RefCell;
 
 use crate::{ entity::{Room} };
+use crate::{ data::{build_rooms} };
 use crate::{ primitives::{RoomMap} };
+
 /*use crate::{
     entity::{Room},
     primitives::{RoomMap},
 */
 
+mod data;
 mod entity;
 mod primitives;
 mod interpreter;
@@ -29,38 +32,6 @@ const BACKSPACE_KEY: u32 = 0x8;
 struct Exit {
     direction: primitives::direction::Direction,
     goesTo: String,
-}
-
-fn build_rooms(roomMap: &mut RoomMap) {
-    let mut startRoom = Room {
-        name: String::from("The Crater"),
-        description: String::from("   The last thing you remember is whistling through space and the phenonomal\n\
-                                   pain you experienced after your (well, the central prisons') ship spun out of\n\
-                                   control.  Astoundingly the safety measures on the prison craft worked better\n\
-                                    than you could have hoped for, aside from a few cuts, bruises and a headache\n\
-                                    worse than anyone in the universe could have had.\n\
-                                       You look dazedly around.  A crater stretches for thirty metres around and\n\
-                                    the craft that got you to this state is lying a short distance to the north\n\
-                                    in a condition that puts your headache to shame.  It is buried several metres\n\
-                                    under the level of the surrounding ground and is twisted and bent like a\n\
-                                    screwed up piece of paper.  You yourself are crumpled up and resting next to\n\
-                                    the craft.  \n\
-                                       So, here you are."),
-        exits: vec![ 
-            entity::exit::Exit { direction: primitives::direction::Direction::North, goesTo: String::from("Room2") },
-        ]
-    };
-    
-    let mut room2 = Room {
-        name: String::from("Room2"),
-        description: String::from("Welcome to the other room."),
-        exits: vec![ 
-            entity::exit::Exit { direction: primitives::direction::Direction::South, goesTo: String::from("The Crater"), },
-        ]
-    };
-    
-    roomMap.insert(String::from("The Crater"), Box::new(startRoom));
-    roomMap.insert(String::from("Room2"), Box::new(room2));
 }
 
 struct Model {
@@ -134,14 +105,17 @@ fn moveInDirection(model: &mut Model, direction: primitives::direction::Directio
         let exit = &model.get_curr_room().exits[index];
         if exit.get_direction() == direction {
             model.currentRoom = exit.goes_to();
+            return;
         }
     }
+    
+    model.response_text = String::from("You can't go that way!");
 }
 
 fn processAction(model: &mut Model, action: &primitives::action::Action) {
-    
+
     model.response_text = String::from("");
-        
+
     match action.direction {
         primitives::direction::Direction::North => { moveInDirection(model, action.direction) },
         primitives::direction::Direction::South => { moveInDirection(model, action.direction) },
@@ -161,7 +135,7 @@ fn processKeyPress(model: &mut Model, event: web_sys::KeyboardEvent) {
             Some(x) => { processAction(model, &x) },
             None => { model.response_text = String::from("I did not understand!") }
         }
-    
+
         model.edit_text = String::from("");
     }
 }
@@ -202,6 +176,12 @@ fn view(model: &Model) -> impl View<Msg> {
         St::Color => "#aaaaaa";
     };
     
+    let response_style = style!{ 
+        St::UserSelect => "none";
+        "font-family" => "dos"; 
+        St::Color => "#00ffff";
+    };
+    
     let banner_style = style!{
         St::UserSelect => "none";
         St::WhiteSpace => "nowrap";
@@ -237,7 +217,7 @@ fn view(model: &Model) -> impl View<Msg> {
         
   //      div![ &text_style, style!{ St::FontSize => unit!(1, em) }, format!("{}", model.currentRoom.describeExits()) ],
         
-        div![ &text_style, format!("{}", model.response_text) ],
+        div![ &response_style, format!("{}", model.response_text) ],
                 
         div![ &text_style, format!(">{}", model.edit_text) ],
         

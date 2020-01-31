@@ -174,6 +174,7 @@ fn view(model: &Model) -> impl View<Msg> {
         St::UserSelect => "none";
         "font-family" => "dos"; 
         St::Color => "#aaaaaa";
+        St::MaxWidth => unit!(80, ch);
     };
     
     let response_style = style!{ 
